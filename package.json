@@ -1,0 +1,17 @@
+{
+  "name": "@ginfo-ecm/discord-bot",
+  "version": "1.0.0",
+  "description": "",
+  "main": "bot.js",
+  "dependencies": {
+    "discord.js": "^11.4.2",
+    "jimp": "^0.6.0",
+    "request": "^2.88.0"
+  },
+  "devDependencies": {},
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "author": "GInfo",
+  "license": "MIT"
+}

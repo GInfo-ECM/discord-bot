@@ -1,0 +1,10 @@
+{
+  "token": "",
+
+  "knet_url": "",
+  "knet_key": "",
+
+  "grafana_render_url": "",
+
+  "prefix": "!"
+}
