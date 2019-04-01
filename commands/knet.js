@@ -15,11 +15,15 @@ module.exports = {
                 'knet': 1
             }}, function(error, response, body){
             console.log(body);
-            data = JSON.parse(body);
-            if(data['ok']){
-                msg.reply('C\'est bon ! Ton nouveau solde est de **'+(data['solde']/100)+'**, et il reste **'+data['stock']+'** canettes au local. ');
-            }else{
-                msg.reply('Echec ! ('+data['msg']+')');
+            try{
+                data = JSON.parse(body);
+                if(data['ok']){
+                    msg.reply('C\'est bon ! Ton nouveau solde est de **'+(data['solde']/100)+'**, et il reste **'+data['stock']+'** canettes au local. ');
+                }else{
+                    msg.reply('Echec ! ('+data['msg']+')');
+                }
+            }catch(err){
+                msg.reply('Echec le plus total');
             }
             //msg.channel.send(body);
         });
