@@ -1,50 +1,41 @@
 const Discord = require('discord.js');
 const client = new Discord.Client();
 const fs = require('fs');
-const jimp = require('jimp');
-const request = require('request');
-
-config = require('./config.json');
-grafana_url = config['grafana_render_url'];
-knet_key = config['knet_key'];
-knet_url = config['knet_url'];
-token = config['token'];
-
-let loutres = {};
-if(fs.existsSync('loutres.json'))
-    loutres = JSON.parse(fs.readFileSync('loutres.json'));
-
-async function dessine(channel) {
-    const garden = await jimp.read('garden.jpg');
-    const loutre = await jimp.read('loutre.png');
-
-    const w = garden.bitmap.width;
-    const h = garden.bitmap.height;
-
-    const lw = loutre.bitmap.width;
-    const lh = loutre.bitmap.height;
-
-    console.log(jimp.FONT_SANS_32_BLACK);
-    const font = await jimp.loadFont(jimp.FONT_SANS_16_BLACK);
 
 
-    for(l in loutres){
-        const x = Math.floor((w-lw)*Math.random());
-        const y = Math.floor((h-lh)*Math.random());
-        await garden.blit(loutre, x, y);
-        await garden.print(font, x, y, loutres[l].name);
 
-        console.log(loutres[l].name)
-        console.log(x+","+y);
+client.commands = new Discord.Collection();
 
-    }
-
-    await garden.write('gwl.jpg');
-
-    const attachement = new Discord.Attachment('gwl.jpg');
-    await channel.send(attachement);
-    channel.stopTyping();
+const commandFiles = fs.readdirSync('./commands').filter(file => file.endsWith('.js'));
+for (const file of commandFiles) {
+    const command = require(`./commands/${file}`);
+    // set a new item in the Collection
+    // with the key as the command name and the value as the exported module
+    client.commands.set(command.name, command);
 }
+
+const conf = require('./config.json');
+
+
+let server  = {
+    config: conf,
+    grafana_url: conf['grafana_render_url'],
+    knet_key: conf['knet_key'],
+    knet_url: conf['knet_url'],
+    token: conf['token'],
+    loutres: {},
+
+    loadLoutres: function(){
+        if(fs.existsSync('loutres.json'))
+            this.loutres = JSON.parse(fs.readFileSync('loutres.json'));
+    },
+
+    saveLoutres: function(){
+        fs.writeFileSync('loutres.json', JSON.stringify(this.loutres));
+    }
+};
+
+server.loadLoutres();
 
 client.on('ready', () => {
   console.log(`Logged in as ${client.user.tag}!`);
@@ -55,89 +46,27 @@ client.on('ready', () => {
 client.on('message', async msg => {
     if(msg.author.bot) return;
 
-    if(msg.content.indexOf(config.prefix) !== 0) return;
+    if(msg.content.indexOf(server.config.prefix) !== 0) return;
   
-    const args = msg.content.slice(config.prefix.length).trim().split(/ +/g);
-    const command = args.shift().toLowerCase();
+    const args = msg.content.slice(server.config.prefix.length).trim().split(/ +/g);
+    const commandName = args.shift().toLowerCase();
 
-    console.log(msg.channel.name)
-    if(msg.channel.name == 'loutres'){
-        console.log(command);
-        console.log(msg.author.tag);
-        console.log(loutres);
-        if(command == 'adopt'){
-            if(msg.author.tag in loutres){
-                msg.react('❌')
-                return msg.reply('Tu as déjà une loutre !');
-            }
+    const command = client.commands.get(commandName)
+        || client.commands.find(cmd => cmd.aliases && cmd.aliases.includes(commandName));
 
-            console.log(args);
-            if(args.length > 0){
-                const name = args.join(' ');
-                loutres[msg.author.tag] = {
-                    'name': name,
-                    'food': 10,
-                    'hapiness': 10
-                }
+    if (!command) return;
 
-                msg.react('👍');
-                msg.reply('**'+name+'** rejoint le parc à loutres ! :heart_eyes: ');
-            }
-        }
-
-        if(command == 'hug'){
-            if(!(msg.author.tag in loutres)){
-                msg.react('❌')
-                return msg.reply('Tu n\'as pas encore de loutre, tu peux en adopter une avec la commande **!adopt [Nom de la loutre]** !');
-            }
-
-            if(loutres[msg.author.tag].hapiness > 10 && Math.random() > 0.5){
-                msg.reply(loutres[msg.author.tag].name+' ne veut plus de câlins !');
-                msg.react('😪');
-                return;
-            }
-            loutres[msg.author.tag].hapiness += 1;
-            msg.reply('(づ｡◕‿‿◕｡)づ '+loutres[msg.author.tag].name);
-            msg.reply('Ta loutre est maintenant toute contente !');
-            msg.react('😍')
-        }
-
-        if(command == 'garden'){
-            msg.channel.startTyping();
-            dessine(msg.channel)
-        }
-
-        
-
-        fs.writeFileSync('loutres.json', JSON.stringify(loutres))
+    if (command.guildOnly && msg.channel.type !== 'text') {
+        return msg.reply('I can\'t execute that command inside DMs!');
     }
 
-    if(command == 'monitoring'){
-            msg.channel.startTyping();
-            msg.channel.send(new Discord.Attachment(grafana_url, 'grafana.png')).then(function(){
-                msg.channel.stopTyping();
-            })
-        }
-
-    if(command == 'knet'){
-        console.log(args);
-        var username = args[0].toLowerCase();
-        request.post(knet_url, {form: {
-            'apikey': knet_key,
-            'username': username,
-            'knet': 1
-        }}, function(error, response, body){
-            console.log(body);
-            data = JSON.parse(body);
-            if(data['ok']){
-                msg.reply('C\'est bon ! Ton nouveau solde est de **'+(data['solde']/100)+'**, et il reste **'+data['stock']+'** canettes au local. ');
-            }else{
-                msg.reply('Echec ! ('+data['msg']+')');
-            }
-            //msg.channel.send(body);
-        });
-
+    try {
+        command.execute(msg, args, server);
+    } catch (error) {
+        console.error(error);
+        msg.reply('J\'ai perdu. (Ou j\'ai planté mais je marche encore)');
     }
+
 });
 
-client.login(token);
+client.login(server.token);
