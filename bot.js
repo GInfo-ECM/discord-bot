@@ -69,4 +69,14 @@ client.on('message', async msg => {
 
 });
 
+// Prevent fails
+process.on("unhandledRejection", err => {
+    console.error("Uncaught Promise Error: \n" + err.stack);
+});
+client.on('disconnect', async () => {
+    client.destroy();
+    client.login(config.clientToken);
+}
+client.on("error", (err) => console.log(err));
+
 client.login(server.token);
