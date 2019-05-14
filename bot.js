@@ -76,7 +76,7 @@ process.on("unhandledRejection", err => {
 client.on('disconnect', async () => {
     client.destroy();
     client.login(config.clientToken);
-}
+});
 client.on("error", (err) => console.log(err));
 
 client.login(server.token);
